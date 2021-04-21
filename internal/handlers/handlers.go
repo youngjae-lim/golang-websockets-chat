@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
 
 	"github.com/CloudyKit/jet/v6"
 	"github.com/gorilla/websocket"
@@ -38,9 +39,10 @@ type WebSocketConnection struct {
 
 // WsJsonResponse defines the response sent back from websocket
 type WsJsonResponse struct {
-	Action       string `json:"action"`
-	Message      string `json:"message"`
-	Message_Type string `json:"message_type"`
+	Action         string   `json:"action"`
+	Message        string   `json:"message"`
+	Message_Type   string   `json:"message_type"`
+	ConnectedUsers []string `json:"connected_users"`
 }
 
 type WsPayload struct {
@@ -101,12 +103,32 @@ func ListenToWsChannel() {
 	var response WsJsonResponse
 
 	for {
-		e := <- wsChan
+		e := <-wsChan
 
-		response.Action = "Get here"
-		response.Message = fmt.Sprintf("Some message, and action was %s", e.Action)
-		broadcastToAll(response)
+		switch e.Action {
+		case "username":
+			// get a list of all users and send it back via broadcast
+			clients[e.Conn] = e.Username
+			users := getUserList()
+			response.Action = "list_users"
+			response.ConnectedUsers = users
+			broadcastToAll(response)
+		}
+
+		// response.Action = "Get here"
+		// response.Message = fmt.Sprintf("Some message, and action was %s", e.Action)
+		// broadcastToAll(response)
 	}
+}
+
+func getUserList() []string {
+	var userList []string
+
+	for _, x := range clients {
+		userList = append(userList, x)
+	}
+	sort.Strings(userList)
+	return userList
 }
 
 func broadcastToAll(response WsJsonResponse) {
